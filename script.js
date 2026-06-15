@@ -166,7 +166,7 @@ function genAsteroids() {
             const a = Math.random() * 2 * Math.PI, r = 0.2 + Math.random() * 0.8;
             shape.push({ ox: Math.cos(a) * r + (Math.random() - 0.5) * 0.25, oy: Math.sin(a) * r + (Math.random() - 0.5) * 0.25, oz: (Math.random() - 0.5) * 0.4, b: 0.3 + Math.random() * 0.7 });
         }
-        data.push({ x: dist * Math.sin(phi) * Math.cos(theta), y: dist * Math.sin(phi) * Math.sin(theta), z: dist * Math.cos(phi), rot: Math.random() * 2 * Math.PI, tumbleX: (Math.random() - 0.5) * 0.015, tumbleY: (Math.random() - 0.5) * 0.015, size, hue: 25 + Math.random() * 30, brightBase: 0.4 + Math.random() * 0.4, shape });
+        data.push({ x: dist * Math.sin(phi) * Math.cos(theta), y: dist * Math.sin(phi) * Math.sin(theta), z: dist * Math.cos(phi), rotX: Math.random() * 2 * Math.PI, rotY: Math.random() * 2 * Math.PI, tumbleX: (Math.random() - 0.5) * 0.015, tumbleY: (Math.random() - 0.5) * 0.015, size, hue: 25 + Math.random() * 30, brightBase: 0.4 + Math.random() * 0.4, shape });
     }
     return data;
 }
@@ -257,7 +257,8 @@ function render() {
             for (let j = 0; j < pl.ringPts.length; j++) {
                 const rp = pl.ringPts[j];
                 const ox = rp.ox * rc - rp.oz * rs, oz = rp.ox * rs + rp.oz * rc;
-                const rr = { x: p.x + ringScale * ox, y: p.y + ringScale * rp.oy, z: p.z + ringScale * oz };
+                let rr = { x: ux + ringScale * ox, y: uy + ringScale * rp.oy, z: uz + ringScale * oz };
+                rr = rotateX(rr, ax); rr = rotateY(rr, ay);
                 const rpr = project(rr);
                 if (rpr.z < 2 || rpr.z > 99990) continue;
                 const rd = Math.sqrt(rr.x * rr.x + rr.y * rr.y + rr.z * rr.z);
@@ -268,12 +269,14 @@ function render() {
 
     for (let i = 0; i < asteroidData.length; i++) {
         const ast = asteroidData[i];
-        ast.rot += ast.tumbleX;
-        const rot = ast.rot, s = Math.sin(rot), c = Math.cos(rot);
+        ast.rotX += ast.tumbleX; ast.rotY += ast.tumbleY;
+        const sx = Math.sin(ast.rotX), cx = Math.cos(ast.rotX);
+        const sy = Math.sin(ast.rotY), cy = Math.cos(ast.rotY);
         for (let j = 0; j < ast.shape.length; j++) {
             const cell = ast.shape[j];
-            const ox = cell.ox * c - cell.oy * s, oy = cell.ox * s + cell.oy * c;
-            let ap = { x: ast.x + ox * ast.size, y: ast.y + oy * ast.size + cell.oz * ast.size, z: ast.z + cell.oz * ast.size };
+            let y = cell.oy * cx - cell.oz * sx, z = cell.oy * sx + cell.oz * cx;
+            let x = cell.ox * cy + z * sy; z = -cell.ox * sy + z * cy;
+            let ap = { x: ast.x + x * ast.size, y: ast.y + y * ast.size, z: ast.z + z * ast.size };
             ap = rotateX(ap, ax); ap = rotateY(ap, ay);
             const apr = project(ap);
             if (apr.z < 2 || apr.z > 99990) continue;
@@ -305,8 +308,8 @@ function render() {
     for (let y = 0; y < H; y++) {
         for (let x = 0; x < W; x++) {
             const c = buf[x + y * W];
-            if (c.b <= 0.01) continue;
             if (c.b < 0) { ctx.fillStyle = '#000'; ctx.fillRect(x * CONFIG.charCellW, y * CONFIG.charCellH, CONFIG.charCellW, CONFIG.charCellH); }
+            else if (c.b <= 0.01) continue;
             else { ctx.fillStyle = colorStr(c.b, c.h); ctx.fillText(c.ch, x * CONFIG.charCellW, y * CONFIG.charCellH); }
         }
     }
@@ -319,10 +322,10 @@ function frame(time) {
         fpsEl.textContent = state.fps + ' FPS';
     }
     let kx = 0, ky = 0;
-    if (state.keys['w'] || state.keys['ArrowUp']) kx = CONFIG.keyboardRotSpeed;
-    if (state.keys['s'] || state.keys['ArrowDown']) kx = -CONFIG.keyboardRotSpeed;
-    if (state.keys['a'] || state.keys['ArrowLeft']) ky = CONFIG.keyboardRotSpeed;
-    if (state.keys['d'] || state.keys['ArrowRight']) ky = -CONFIG.keyboardRotSpeed;
+    if (state.keys['w'] || state.keys['ArrowUp']) kx -= CONFIG.keyboardRotSpeed;
+    if (state.keys['s'] || state.keys['ArrowDown']) kx += CONFIG.keyboardRotSpeed;
+    if (state.keys['a'] || state.keys['ArrowLeft']) ky += CONFIG.keyboardRotSpeed;
+    if (state.keys['d'] || state.keys['ArrowRight']) ky -= CONFIG.keyboardRotSpeed;
     if (kx || ky) { state.targetRotX += kx; state.targetRotY += ky; }
     state.rotX += (state.targetRotX - state.rotX) * 0.08;
     state.rotY += (state.targetRotY - state.rotY) * 0.08;
